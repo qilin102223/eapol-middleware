@@ -9,6 +9,8 @@
     "trust_proxy": false,
     "batch_max_workers": 10,
     "max_body_bytes": 16384,
+    "called_station_mac": null,
+    "calling_station_mac": null,
 
     "rate_limit": {
         "per_ip_requests_per_minute": 30,
@@ -31,6 +33,7 @@
             "address": "127.0.0.1",
             "port": 1812,
             "secret": "testing123",
+            "ssid": "eduroam",
             "description": "FreeRADIUS Default Setting",
             "types": ["eap", "non-eap"]
         }

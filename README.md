@@ -28,6 +28,8 @@
     "trust_proxy": false,
     "batch_max_workers": 10,
     "max_body_bytes": 16384,
+    "called_station_mac": null,
+    "calling_station_mac": null,
 
     "rate_limit": {
         "per_ip_requests_per_minute": 30,
@@ -47,6 +49,7 @@
             "address": "192.168.1.1",
             "port": 1812,
             "secret": "testing123",
+            "ssid": "eduroam",
             "description": "主要 RADIUS",
             "types": ["eap", "non-eap"]
         },
@@ -54,6 +57,7 @@
             "address": "192.168.1.2",
             "port": 1812,
             "secret": "secret456",
+            "ssid": "eduroam",
             "description": "僅 EAP",
             "types": ["eap"]
         }
@@ -62,6 +66,8 @@
 ```
 
 - `types` 可選值：`eap`（802.1X EAP）、`non-eap`（傳統 RADIUS PAP/CHAP/MSCHAP）。
+- `servers.<name>.ssid` 是後端指定的測試 SSID，不接受使用者輸入；EAP 測試會把它寫入 wpa_supplicant conf，並帶入 `eapol_test -N 30:s:<called_station_mac>:<ssid>`。
+- `called_station_mac` / `calling_station_mac` 是全域 RADIUS Called-Station-Id / Calling-Station-Id MAC；可用 `aa-bb-cc-dd-ee-ff` 或 `aa:bb:cc:dd:ee:ff`，設成 `null` 或省略時啟動時隨機產生。
 - `raw_log`：**預設 false**。啟用後 API 才會回傳 `output` / `raw_output` / `config_used` 這類除錯資料。公開環境不建議啟用。
 - `trust_proxy`：部署在 nginx / 其他反代後方時設 `true`，app 會優先解析 `CF-Connecting-IP`、其次 `X-Forwarded-For` / `X-Real-IP` 取真實來源 IP。
 - `rate_limit.whitelist_ips`：支援單一 IP 或 CIDR；白名單 IP 可跳過 per-IP 限制，但**無法**跳過全域 subprocess / batch semaphore。
@@ -132,7 +138,7 @@ internet → :80,:443 nginx（eapol-nginx repo）→ 127.0.0.1:5000 eapol-middle
 - **Batch 端點**：13 組合完整展開、parallel on/off 一致、EAP-only / non-eap-only server 過濾、`rootca=true` 時同 PEM cache（僅查一次）
 - **前端契約**：`/` 與 `/batch` 模板上 JS 需要的 DOM id 都在、外部 JS 唯一、batch.js CSV header 順序 (`method,eap_phase2,result,server_cn,server_cert[,root_cn,root_cert]`)、UTF-8 BOM、RFC4180 quote/escape、檔名 `<identity>-<server>-<ts>.csv` + `@` 保留、b64→PEM 64 字元換行、index.js API 路由與 `modeEap/modeRad` 切換綁定
 
-共 120 項。（nginx 層的設定契約測試已隨 nginx 拆到 eapol-nginx repo）
+共 124 項。（nginx 層的設定契約測試已隨 nginx 拆到 eapol-nginx repo）
 
 ## API 摘要
 

@@ -50,6 +50,29 @@ with open(CONFIG_PATH, "r") as f:
 
 SERVERS = CONFIG["servers"]
 DEFAULT_SERVER = CONFIG.get("default_server", next(iter(SERVERS)))
+DEFAULT_EAPOL_SSID = "eapol-test"
+
+
+def _random_mac():
+    raw = bytearray(os.urandom(6))
+    raw[0] = (raw[0] | 0x02) & 0xFE  # locally administered, unicast
+    return "-".join(f"{b:02x}" for b in raw)
+
+
+def _normalize_mac(value, field_name):
+    if value is None or str(value).strip() == "":
+        return _random_mac()
+    mac = str(value).strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{2}([-:])[0-9a-f]{2}(\1[0-9a-f]{2}){4}", mac):
+        raise RuntimeError(
+            f"invalid {field_name} in config.json: expected aa-bb-cc-dd-ee-ff")
+    return mac.replace(":", "-")
+
+
+CALLED_STATION_MAC = _normalize_mac(
+    CONFIG.get("called_station_mac"), "called_station_mac")
+CALLING_STATION_MAC = _normalize_mac(
+    CONFIG.get("calling_station_mac"), "calling_station_mac")
 
 # ── 安全 / 限流設定 ──────────────────────────────────────────────
 
@@ -283,13 +306,29 @@ def _to_hex(s):
     return s.encode("utf-8").hex()
 
 
+def server_ssid(server_cfg):
+    return str(server_cfg.get("ssid") or DEFAULT_EAPOL_SSID)
+
+
+def _wpa_quoted(value):
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def eapol_radius_attributes(ssid):
+    return [
+        "-N", f"30:s:{CALLED_STATION_MAC}:{ssid}",
+        "-N", f"31:s:{CALLING_STATION_MAC}",
+    ]
+
+
 def build_eapol_conf(identity, password, eap_method, phase2,
-                     anonymous_identity=""):
+                     anonymous_identity="", ssid=DEFAULT_EAPOL_SSID):
     method_upper = eap_method.upper()
     phase2_str = PHASE2_OPTIONS[eap_method][phase2]
     lines = [
         "network={",
-        '    ssid="eapol-test"',
+        f"    ssid={_wpa_quoted(ssid)}",
         "    key_mgmt=WPA-EAP",
         f"    eap={method_upper}",
         f"    identity={_to_hex(identity)}",
@@ -336,6 +375,7 @@ def run_eapol_test(conf_content, server_cfg, server_name=""):
             "-s", server_cfg["secret"],
             "-t", str(timeout), "-o", cert_path,
         ]
+        cmd.extend(eapol_radius_attributes(server_ssid(server_cfg)))
         result = subprocess.run(cmd, capture_output=True, text=True,
                                 timeout=timeout + 5)
         output = mask_server_ip(result.stdout + result.stderr,
@@ -955,11 +995,12 @@ def _execute_eap_request():
         return None, None, (
             jsonify({"error": f"server {params['server_name']} does not support EAP"}), 400)
 
+    server_cfg = SERVERS[params["server_name"]]
     conf = build_eapol_conf(params["username"], params["password"],
                             params["eap_method"], params["phase2"],
-                            params["anonymous_identity"])
-    raw = run_eapol_test(conf, SERVERS[params["server_name"]],
-                         params["server_name"])
+                            params["anonymous_identity"],
+                            server_ssid(server_cfg))
+    raw = run_eapol_test(conf, server_cfg, params["server_name"])
     if raw.pop("_busy", False):
         return None, None, (jsonify({"error": "service busy"}), 503)
     return params, raw, None
@@ -1089,7 +1130,8 @@ def batch_endpoint():
         eap_combos = [(eap, p2) for eap, pm in PHASE2_OPTIONS.items() for p2 in pm]
 
         def run_eap_one(eap, p2):
-            conf = build_eapol_conf(username, password, eap, p2, anonymous_identity)
+            conf = build_eapol_conf(username, password, eap, p2,
+                                    anonymous_identity, server_ssid(server_cfg))
             raw = run_eapol_test(conf, server_cfg, server_name)
             raw.pop("_busy", None)
             result = determine_auth_result(raw["output"])

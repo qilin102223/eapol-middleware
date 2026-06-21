@@ -530,6 +530,8 @@ Rate limit 用到的 in-memory bucket 會在後續請求進來時伺機清理（
   "trust_proxy": false,
   "batch_max_workers": 10,
   "max_body_bytes": 16384,
+  "called_station_mac": null,
+  "calling_station_mac": null,
 
   "rate_limit": {
     "per_ip_requests_per_minute": 30,
@@ -549,6 +551,7 @@ Rate limit 用到的 in-memory bucket 會在後續請求進來時伺機清理（
       "address": "4.190.160.22",
       "port": 1812,
       "secret": "testing123",
+      "ssid": "eduroam",
       "description": "臺灣學術網路漫遊中心",
       "types": ["eap", "non-eap"]
     }
@@ -566,10 +569,13 @@ Rate limit 用到的 in-memory bucket 會在後續請求進來時伺機清理（
 | `trust_proxy`            | 反代後方部署時設 true，優先從 `CF-Connecting-IP`，其次 `X-Forwarded-For` / `X-Real-IP` 取真實 IP |
 | `batch_max_workers`      | 單一 batch 請求內 thread pool 上限                         |
 | `max_body_bytes`         | Flask `MAX_CONTENT_LENGTH`；預設 `16384`（16 KB），超過回 `413` |
+| `called_station_mac`     | RADIUS Called-Station-Id 使用的 AP/BSSID MAC；可設 `aa-bb-cc-dd-ee-ff` / `aa:bb:cc:dd:ee:ff`，`null` 或省略時啟動時隨機產生 |
+| `calling_station_mac`    | RADIUS Calling-Station-Id 使用的 client MAC；可設 `aa-bb-cc-dd-ee-ff` / `aa:bb:cc:dd:ee:ff`，`null` 或省略時啟動時隨機產生 |
 | `rate_limit.*`           | Per-IP 與全域限流參數（見上節）                            |
 | `rootca_fetch.timeout`   | AIA fetch timeout 秒數                                     |
 | `rootca_fetch.max_size_bytes` | AIA fetch 下載大小上限                                |
 | `servers.<name>`         | 單一 server 設定                                           |
+| `servers.<name>.ssid`    | 後端指定的 EAP 測試 SSID；不接受使用者輸入，會帶入 conf 與 `eapol_test -N 30:s:<called_station_mac>:<ssid>` |
 | `servers.<name>.types`   | `["eap"]` / `["non-eap"]` / 兩者皆填                       |
 
 ### 環境變數

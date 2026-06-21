@@ -127,6 +127,20 @@ class TestRawLog(_Base):
         self.assertIn("config_used", data)
         self.assertIn("raw_output", data)
 
+    def test_structured_uses_server_configured_ssid(self):
+        _, client = self.load(raw_log=True, servers={
+            "TEST": {
+                "address": "127.0.0.1", "port": 1812,
+                "secret": "secret123", "ssid": "eduroam",
+                "types": ["eap", "non-eap"],
+            },
+        })
+        resp = client.post("/api/eapol-test/structured", json={
+            "username": "u", "password": "p",
+            "eap_method": "peap", "phase2": "mschapv2"})
+        data = resp.get_json()
+        self.assertIn('ssid="eduroam"', data["config_used"])
+
     def test_opt_in_raw(self):
         _, client = self.load(raw_log=True)
         resp = client.post("/api/eapol-test", json={
@@ -365,6 +379,20 @@ class TestConfigDefaults(_Base):
         self.assertEqual(mod.WHITELIST_NETS, [])
         self.assertEqual(mod.ROOTCA_FETCH_TIMEOUT, 5)
         self.assertEqual(mod.ROOTCA_MAX_SIZE, 262144)
+        self.assertRegex(
+            mod.CALLED_STATION_MAC,
+            r"^[0-9a-f]{2}(-[0-9a-f]{2}){5}$")
+        self.assertRegex(
+            mod.CALLING_STATION_MAC,
+            r"^[0-9a-f]{2}(-[0-9a-f]{2}){5}$")
+
+    def test_station_macs_configured_and_normalized(self):
+        mod, _ = self.load(
+            called_station_mac="AA:BB:CC:DD:EE:FF",
+            calling_station_mac="02-00-00-00-00-01",
+        )
+        self.assertEqual(mod.CALLED_STATION_MAC, "aa-bb-cc-dd-ee-ff")
+        self.assertEqual(mod.CALLING_STATION_MAC, "02-00-00-00-00-01")
 
     def test_invalid_cidr_skipped(self):
         mod, _ = self.load(rate_limit={
@@ -909,6 +937,44 @@ class TestCoreHelpers(_Base):
         self.assertIn('phase1="peaplabel=0"', conf)
         self.assertIn("eap=PEAP", conf)
         self.assertIn('phase2="auth=MSCHAPV2"', conf)
+
+    def test_build_eapol_conf_uses_configured_ssid(self):
+        mod, _ = self.load()
+        conf = mod.build_eapol_conf(
+            identity="u", password="p", eap_method="peap",
+            phase2="mschapv2", ssid="eduroam")
+        self.assertIn('ssid="eduroam"', conf)
+
+    def test_run_eapol_test_adds_ssid_radius_attributes(self):
+        mod, _ = self.load(
+            called_station_mac="AA:BB:CC:DD:EE:FF",
+            calling_station_mac="02-00-00-00-00-01",
+        )
+        calls = {}
+
+        class Result:
+            stdout = "SUCCESS\n"
+            stderr = ""
+            returncode = 0
+
+        def fake_run(cmd, capture_output, text, timeout):
+            calls["cmd"] = cmd
+            return Result()
+
+        old_run = mod.subprocess.run
+        mod.subprocess.run = fake_run
+        try:
+            server_cfg = {
+                "address": "198.51.200.5", "port": 1812,
+                "secret": "supers3cret", "ssid": "eduroam",
+            }
+            mod.run_eapol_test("network={}", server_cfg, "TEST")
+        finally:
+            mod.subprocess.run = old_run
+
+        self.assertIn("30:s:aa-bb-cc-dd-ee-ff:eduroam", calls["cmd"])
+        self.assertIn("31:s:02-00-00-00-00-01", calls["cmd"])
+        self.assertEqual(calls["cmd"].count("-N"), 2)
 
     def test_build_eapol_conf_ttls_no_peap_phase1(self):
         mod, _ = self.load()
