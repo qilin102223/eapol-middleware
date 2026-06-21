@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RADIUS 認證測試</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&family=Material+Symbols+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/theme.js"></script>
+</head>
+<body>
+    <header class="top-bar">
+        <a class="site-logo" href="https://eduroam.mygo.tw" target="_blank" rel="noopener">
+            <img src="/static/light_logo.png" alt="logo" class="logo-light">
+            <img src="/static/dark_logo.png" alt="logo" class="logo-dark">
+        </a>
+        <div class="top-bar-actions">
+            <a class="nav-btn" href="/batch">認證設定測試</a>
+            <button class="theme-toggle" id="themeToggle" title="切換深色/淺色模式" aria-label="Toggle theme">
+                <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
+            </button>
+        </div>
+    </header>
+    <div class="container">
+        <h1>無線網路漫遊帳號測試</h1>
+        <p class="subtitle">支援 TANetRoaming / eduroam / OpenRoaming 測試</p>
+
+        <div class="segmented" role="tablist">
+            <button class="seg-btn active" id="modeEap">eduroam / OpenRoaming (802.1X EAP)</button>
+            <button class="seg-btn" id="modeRad">TANetRoaming (RADIUS)</button>
+        </div>
+
+        <div class="card">
+            <div class="field">
+                <label class="field-label" for="server">認證伺服器 (RADIUS Server)</label>
+                <select id="server"></select>
+            </div>
+
+            <details class="help-box">
+                <summary><span class="material-symbols-outlined icon-sm">help</span>我要選擇哪個認證伺服器？</summary>
+                <div class="help-content">
+                    <p><strong>連 eduroam</strong>：選擇帶 <code>eduroam</code> 的伺服器。目前有兩個，一個從台灣的測試伺服器驗證、一個從歐洲的測試伺服器驗證，可用來判別帳號在國內或國外是否能正常認證。</p>
+                    <p><strong>連 TANetRoaming（網頁登入）</strong>：請切到 TANetRoaming 頁面進行測試。</p>
+                    <p><strong>連 OpenRoaming</strong>（例如日本 TOKYO_FREE_Wi-Fi）：選擇帶 <code>OpenRoaming</code> 的伺服器，並輸入你的 eduroam 帳號；若學校已啟用 eduroam 跨 OpenRoaming 的設定，就會驗證成功。實際裝置設定請使用 <a href="https://cat.eduroam.org/" target="_blank" rel="noopener">eduroam CAT</a> 或 <a href="https://geteduroam.org/" target="_blank" rel="noopener">geteduroam</a> 下載你學校的設定檔使用。</p>
+                </div>
+            </details>
+
+            <div class="field">
+                <label class="field-label" for="username">帳號</label>
+                <input type="text" id="username" placeholder="tomorin@crychic.mygo.tw">
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="password">密碼</label>
+                <input type="password" id="password" placeholder="輸入密碼">
+            </div>
+
+            <div id="eapFields">
+                <div class="field">
+                    <label class="field-label" for="anonymous_identity">匿名身份 (選填)</label>
+                    <input type="text" id="anonymous_identity" placeholder="anonymous@crychic.mygo.tw">
+                </div>
+                <div class="row">
+                    <div class="field">
+                        <label class="field-label" for="eap_method">EAP 方法</label>
+                        <select id="eap_method"></select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="phase2">Phase 2</label>
+                        <select id="phase2"></select>
+                    </div>
+                </div>
+                <label class="check-row">
+                    <input type="checkbox" id="rootca">
+                    取得伺服器根憑證
+                </label>
+            </div>
+
+            <div id="radFields" class="hidden">
+                <div class="field">
+                    <label class="field-label" for="rad_method">認證方法</label>
+                    <select id="rad_method">
+                        <option value="pap">PAP</option>
+                        <option value="chap">CHAP</option>
+                        <option value="mschap">MSCHAP</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn" id="testBtn">
+                <span class="material-symbols-outlined icon-md">play_arrow</span>
+                執行測試
+            </button>
+        </div>
+
+        <div class="spinner" id="spinner">測試中，請稍候...</div>
+
+        <div id="errorBox" class="error-box hidden" role="alert" aria-live="polite"></div>
+        <div id="resultArea" class="hidden">
+            <div class="status-chip" id="statusBadge"></div>
+            <div class="card">
+                <label class="section-label">測試摘要</label>
+                <table class="info-table" id="summaryTable"></table>
+            </div>
+            <div class="card hidden" id="certArea">
+                <label class="section-label">伺服器憑證鏈</label>
+                <div id="certList"></div>
+            </div>
+            <div class="card hidden" id="rootCaArea">
+                <label class="section-label">Root CA（AIA 追溯）</label>
+                <div id="rootCaBox"></div>
+            </div>
+            <div class="card hidden" id="rawArea">
+                <details>
+                    <summary>原始輸出</summary>
+                    <div class="result-box" id="rawOutput"></div>
+                </details>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div>維護：<a href="https://edur.isli.me/" target="_blank" rel="noopener">eduroam 第三方資料庫</a>。協助：<a href="https://roamingcenter.ndhu.edu.tw/" target="_blank" rel="noopener">TANRC 學術網路漫遊中心</a>。主機：<a href="https://ncse.tw/" target="_blank" rel="noopener">NCSE NETWORK 國雲網路</a>。</div>
+        </footer>
+    </div>
+    <script src="/static/index.js"></script>
+</body>
+</html>

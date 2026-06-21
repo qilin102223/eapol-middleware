@@ -1,0 +1,20 @@
+# 唯一部署模式：
+#   cp config.example.json config.json && vim config.json
+#   docker compose up -d --build
+#   → http://localhost:5000
+#
+# 只綁 loopback；對外的 TLS / 網域分流由獨立的 eapol-nginx repo 反代
+# 127.0.0.1:5000。要直接對 LAN 開放的話，把 ports 改成 "5000:5000"。
+
+services:
+  eapol-middleware:
+    build: .
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192

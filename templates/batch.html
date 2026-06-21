@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帳號設定偵測</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&family=Material+Symbols+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/theme.js"></script>
+</head>
+<body>
+    <header class="top-bar">
+        <a class="site-logo" href="https://eduroam.mygo.tw" target="_blank" rel="noopener">
+            <img src="/static/light_logo.png" alt="logo" class="logo-light">
+            <img src="/static/dark_logo.png" alt="logo" class="logo-dark">
+        </a>
+        <div class="top-bar-actions">
+            <a class="nav-btn" href="/">帳號登入測試</a>
+            <button class="theme-toggle" id="themeToggle" title="切換深色/淺色模式" aria-label="Toggle theme">
+                <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
+            </button>
+        </div>
+    </header>
+    <div class="container-wide">
+        <h1>帳號設定偵測</h1>
+        <p class="subtitle">你需要提供有效的帳號，系統會偵測帳號支援的認證方法。</p>
+
+        <div class="card form-card">
+            <div class="field">
+                <label class="field-label" for="server">認證伺服器 (RADIUS Server)</label>
+                <select id="server"></select>
+            </div>
+
+            <details class="help-box">
+                <summary><span class="material-symbols-outlined icon-sm">help</span>我要選擇哪個認證伺服器？</summary>
+                <div class="help-content">
+                    <p><strong>連 eduroam</strong>：選擇帶 <code>eduroam</code> 的伺服器。目前有兩個，一個從台灣的測試伺服器驗證、一個從歐洲的測試伺服器驗證，可用來判別帳號在國內或國外是否能正常認證。</p>
+                    <p><strong>連 TANetRoaming（網頁登入）</strong>：請切到單次測試頁面進行測試。</p>
+                    <p><strong>連 OpenRoaming</strong>（例如日本 TOKYO_FREE_Wi-Fi）：選擇帶 <code>OpenRoaming</code> 的伺服器，並輸入你的 eduroam 帳號；若學校已啟用 eduroam 跨 OpenRoaming 的設定，就會驗證成功。實際裝置設定請使用 <a href="https://cat.eduroam.org/" target="_blank" rel="noopener">eduroam CAT</a> 或 <a href="https://geteduroam.org/" target="_blank" rel="noopener">geteduroam</a> 下載你學校的設定檔使用。</p>
+                </div>
+            </details>
+
+            <div class="field">
+                <label class="field-label" for="username">帳號</label>
+                <input type="text" id="username" placeholder="tomorin@crychic.mygo.tw">
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="password">密碼</label>
+                <input type="password" id="password" placeholder="輸入密碼">
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="anonymous_identity">匿名身份 (選填)</label>
+                <input type="text" id="anonymous_identity" placeholder="anonymous@crychic.mygo.tw">
+            </div>
+
+            <label class="check-row">
+                <input type="checkbox" id="parallel" checked>
+                啟用並行處理 (速度較快，但部分帳號不支援，會認證失敗)
+            </label>
+            <label class="check-row">
+                <input type="checkbox" id="rootca">
+                取得伺服器根憑證
+            </label>
+
+            <button class="btn" id="testBtn">
+                <span class="material-symbols-outlined icon-md">play_arrow</span>
+                開始偵測設定
+            </button>
+        </div>
+
+        <div class="spinner" id="spinner">正在測試所有認證方法組合，請稍候...</div>
+
+        <div id="resultArea" class="hidden">
+            <div class="card">
+                <div class="result-header">
+                    <div class="summary-line" id="summaryLine"></div>
+                    <button class="nav-btn export-btn" id="exportCsvBtn" type="button">
+                        <span class="material-symbols-outlined icon-sm">download</span>
+                        另存為 CSV
+                    </button>
+                </div>
+                <div class="table-wrap">
+                    <table id="resultTable" class="md-table no-root">
+                        <thead>
+                            <tr>
+                                <th>認證方法</th>
+                                <th>EAP Phase 2</th>
+                                <th>結果</th>
+                                <th>伺服器憑證 CN</th>
+                                <th>憑證下載</th>
+                                <th class="rootca-col">Root CA</th>
+                                <th class="rootca-col">Root 下載</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div>維護：<a href="https://edur.isli.me/" target="_blank" rel="noopener">eduroam 第三方資料庫</a>。協助：<a href="https://roamingcenter.ndhu.edu.tw/" target="_blank" rel="noopener">TANRC 學術網路漫遊中心</a>。主機：<a href="https://ncse.tw/" target="_blank" rel="noopener">NCSE NETWORK 國雲網路</a>。</div>
+        </footer>
+    </div>
+    <script src="/static/batch.js"></script>
+</body>
+</html>

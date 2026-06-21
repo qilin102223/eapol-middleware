@@ -1,0 +1,1 @@
+{"eapol_test_path": "/usr/bin/eapol_test", "timeout": 5, "default_server": "TEST", "servers": {"TEST": {"address": "127.0.0.1", "port": 1812, "secret": "secret123", "types": ["eap", "non-eap"]}}, "trust_proxy": true, "rate_limit": {"per_ip_requests_per_minute": 1, "whitelist_ips": ["127.0.0.1/32"]}}

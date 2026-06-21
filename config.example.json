@@ -1,0 +1,38 @@
+{
+    "eapol_test_path": "/usr/bin/eapol_test",
+    "timeout": 30,
+    "listen_host": "0.0.0.0",
+    "listen_port": 48763,
+    "default_server": "FreeRADIUS_Demo",
+
+    "raw_log": false,
+    "trust_proxy": false,
+    "batch_max_workers": 10,
+    "max_body_bytes": 16384,
+
+    "rate_limit": {
+        "per_ip_requests_per_minute": 30,
+        "per_ip_batch_per_minute": 3,
+        "global_max_subprocesses": 50,
+        "global_max_batch_jobs": 5,
+        "whitelist_ips": [
+            "127.0.0.1/32",
+            "::1/128"
+        ]
+    },
+
+    "rootca_fetch": {
+        "timeout": 5,
+        "max_size_bytes": 262144
+    },
+
+    "servers": {
+        "FreeRADIUS_Demo": {
+            "address": "127.0.0.1",
+            "port": 1812,
+            "secret": "testing123",
+            "description": "FreeRADIUS Default Setting",
+            "types": ["eap", "non-eap"]
+        }
+    }
+}
