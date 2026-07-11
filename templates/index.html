@@ -73,7 +73,7 @@
                     </div>
                 </div>
                 <label class="check-row">
-                    <input type="checkbox" id="rootca">
+                    <input type="checkbox" id="rootca" checked>
                     取得伺服器根憑證
                 </label>
             </div>
@@ -95,7 +95,10 @@
             </button>
         </div>
 
-        <div class="spinner" id="spinner">測試中，請稍候...</div>
+        <div class="spinner hidden" id="spinner" role="status">
+            <div class="spinner-ring" aria-hidden="true"></div>
+            <span>測試中，請稍候...</span>
+        </div>
 
         <div id="errorBox" class="error-box hidden" role="alert" aria-live="polite"></div>
         <div id="resultArea" class="hidden">
@@ -124,6 +127,7 @@
             <div>維護：<a href="https://edur.isli.me/" target="_blank" rel="noopener">eduroam 第三方資料庫</a>。協助：<a href="https://roamingcenter.ndhu.edu.tw/" target="_blank" rel="noopener">TANRC 學術網路漫遊中心</a>。主機：<a href="https://ncse.tw/" target="_blank" rel="noopener">NCSE NETWORK 國雲網路</a>。</div>
         </footer>
     </div>
+    <script src="/static/ui.js"></script>
     <script src="/static/index.js"></script>
 </body>
 </html>

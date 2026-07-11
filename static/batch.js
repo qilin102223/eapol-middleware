@@ -1,37 +1,22 @@
 (function() {
     "use strict";
 
+    var $ = UI.$;
+    var clearChildren = UI.clearChildren;
+
     var certStore = {};
     var lastBatch = null;  // { data, includeRoot }
 
-    function $(id) { return document.getElementById(id); }
-
-    function clearChildren(el) {
-        while (el.firstChild) el.removeChild(el.firstChild);
+    function clearError() {
+        var box = $("errorBox");
+        box.textContent = "";
+        box.classList.add("hidden");
     }
 
-    function showError(msg) { alert(msg); }
-
-    function httpStatusText(status) {
-        if (status === 400) return "參數錯誤 (400)";
-        if (status === 401) return "認證失敗 (401)";
-        if (status === 404) return "找不到 (404)";
-        if (status === 405) return "方法不允許 (405)";
-        if (status === 408) return "請求逾時 (408)";
-        if (status === 413) return "請求過大 (413)";
-        if (status === 429) return "請求過多 (429)";
-        if (status === 500) return "內部伺服器錯誤 (500)";
-        if (status === 502) return "上游服務錯誤 (502)";
-        if (status === 503) return "服務暫時無法使用 (503)";
-        if (status === 504) return "伺服器回應逾時 (504)";
-        return "HTTP " + status;
-    }
-
-    function b64ToPem(b64) {
-        if (!b64) return "";
-        return "-----BEGIN CERTIFICATE-----\n"
-            + b64.match(/.{1,64}/g).join("\n")
-            + "\n-----END CERTIFICATE-----\n";
+    function showError(msg) {
+        var box = $("errorBox");
+        box.textContent = msg || "";
+        box.classList.remove("hidden");
     }
 
     function csvEscape(val) {
@@ -68,11 +53,11 @@
                     phase2Name,
                     r.result || "",
                     r.server_cert_cn || "",
-                    b64ToPem(r.server_cert_base64),
+                    UI.b64ToPem(r.server_cert_base64),
                 ];
                 if (includeRoot) {
                     if (r.root_ca) {
-                        row.push(r.root_ca.cn || "", b64ToPem(r.root_ca.base64));
+                        row.push(r.root_ca.cn || "", UI.b64ToPem(r.root_ca.base64));
                     } else {
                         row.push("", "");
                     }
@@ -86,59 +71,7 @@
         // e.g. 2026-04-19T11:30:00.000Z → 2026-04-19_11-30-00
         var ts = new Date().toISOString().slice(0, 19).replace(/:/g, "-").replace("T", "_");
         var name = (d.identity || "user") + "-" + (d.server || "server") + "-" + ts + ".csv";
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = name.replace(/[^\w.\-@]/g, "_");
-        a.click();
-        URL.revokeObjectURL(a.href);
-    }
-
-    function downloadCert(id) {
-        var c = certStore[id];
-        if (!c || !c.b64) return;
-        var blob = new Blob([b64ToPem(c.b64)], { type: "application/x-pem-file" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = (c.cn || "server").replace(/[^\w.-]/g, "_") + ".pem";
-        a.click();
-        URL.revokeObjectURL(a.href);
-    }
-
-    function friendlyHttpError(status, body) {
-        var bodyErr = "";
-        if (body && body.error) {
-            bodyErr = Array.isArray(body.error) ? body.error.join("\n") : String(body.error);
-        }
-        return bodyErr || httpStatusText(status);
-
-        // 先抽 body.error（後端會把參數驗證錯誤塞這裡），做為優先顯示。
-        var bodyErr = "";
-        if (body && body.error) {
-            bodyErr = Array.isArray(body.error) ? body.error.join("\n") : String(body.error);
-        }
-        if (status === 400) {
-            // 參數錯誤（後端通常會帶訊息）
-            return bodyErr || "參數錯誤 (400)：請檢查輸入格式";
-        }
-        if (status === 401) {
-            // 批次模式不會在最外層回 401，但萬一 proxy / CDN 擋掉時給個說明
-            return "認證失敗 (401)";
-        }
-        if (status === 404) return "找不到路由 (404)";
-        if (status === 405) return "方法不允許（請使用 POST）";
-        if (status === 408) return "逾時 (408)，請稍後再試";
-        if (status === 413) return "請求內容過大 (413)：請確認帳密長度";
-        if (status === 429) return "請求過於頻繁 (429)，請稍後再試";
-        if (status === 500) return "伺服器內部錯誤 (500)：請稍微等候再試";
-        if (status === 502) return "上游服務無法連線 (502)";
-        if (status === 503) return "系統資源忙碌 (503)，請稍後再試";
-        if (status === 504) {
-            // 批次呼叫後端不會主動回 504，但 reverse proxy 可能會；給一致說明
-            return "認證逾時 (504)：RADIUS 伺服器未在時限內回應。請稍後再試。";
-        }
-        if (status >= 500) return "伺服器錯誤 (" + status + ")";
-        if (bodyErr) return bodyErr;
-        return "HTTP " + status;
+        UI.downloadBlob(blob, name.replace(/[^\w.\-@]/g, "_"));
     }
 
     function buildSummaryLine(server, identity, passed, total) {
@@ -174,14 +107,13 @@
         var td = document.createElement("td");
         if (cls) td.className = cls;
         if (!certId) { td.textContent = "-"; return td; }
-        var a = document.createElement("a");
-        a.className = "dl-link";
-        a.textContent = "下載 .pem";
-        a.setAttribute("data-cert-id", certId);
-        a.setAttribute("role", "button");
-        a.setAttribute("tabindex", "0");
-        a.addEventListener("click", function() { downloadCert(this.getAttribute("data-cert-id")); });
-        td.appendChild(a);
+        var btn = UI.pemButton();
+        btn.setAttribute("data-cert-id", certId);
+        btn.addEventListener("click", function() {
+            var c = certStore[this.getAttribute("data-cert-id")];
+            if (c) UI.downloadPem(c.b64, c.cn, "server");
+        });
+        td.appendChild(btn);
         return td;
     }
 
@@ -204,6 +136,8 @@
             var r = d.results[i];
             var tr = document.createElement("tr");
             tr.className = (r.result || "").toLowerCase();
+            // stagger 進場動畫，最多延遲 12 列避免久等
+            tr.style.setProperty("--row-index", Math.min(i, 12));
 
             var methodName = r.type === "non-eap"
                 ? (r.phase2 || "").toUpperCase()
@@ -268,12 +202,10 @@
         if (anon) body.anonymous_identity = anon;
 
         var btn = $("testBtn");
-        var spinner = $("spinner");
-        var resultArea = $("resultArea");
-
         btn.disabled = true;
-        spinner.style.display = "block";
-        resultArea.classList.add("hidden");
+        $("spinner").classList.remove("hidden");
+        clearError();
+        $("resultArea").classList.add("hidden");
 
         try {
             var resp = await fetch("/api/batch", {
@@ -283,8 +215,9 @@
             });
             var d = null;
             try { d = await resp.json(); } catch (e) { d = null; }
-            if (!resp.ok) { showError(friendlyHttpError(resp.status, d)); return; }
-            if (d && d.error) { showError(Array.isArray(d.error) ? d.error.join("\n") : d.error); return; }
+            var bodyErr = UI.errorText(d);
+            if (!resp.ok) { showError(bodyErr || UI.httpStatusText(resp.status)); return; }
+            if (bodyErr) { showError(bodyErr); return; }
 
             var total = d.results.length;
             var passed = 0;
@@ -292,12 +225,12 @@
             buildSummaryLine(d.server, d.identity, passed, total);
             renderResults(d);
             lastBatch = { data: d, includeRoot: $("rootca").checked };
-            resultArea.classList.remove("hidden");
+            $("resultArea").classList.remove("hidden");
         } catch (err) {
             showError("請求失敗: " + (err && err.message ? err.message : String(err)));
         } finally {
             btn.disabled = false;
-            spinner.style.display = "none";
+            $("spinner").classList.add("hidden");
         }
     }
 

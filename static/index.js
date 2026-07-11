@@ -1,16 +1,13 @@
 (function() {
     "use strict";
 
+    var $ = UI.$;
+    var clearChildren = UI.clearChildren;
+
     var methodData = {};
     var allServers = {};
     var currentMode = "eap";
     var certStore = {};
-
-    function $(id) { return document.getElementById(id); }
-
-    function clearChildren(el) {
-        while (el.firstChild) el.removeChild(el.firstChild);
-    }
 
     function el(tag, opts) {
         var e = document.createElement(tag);
@@ -36,45 +33,14 @@
 
     function clearError() {
         var box = $("errorBox");
-        if (!box) return;
         box.textContent = "";
         box.classList.add("hidden");
     }
 
     function showError(msg) {
         var box = $("errorBox");
-        if (!box) return;
         box.textContent = msg || "";
         box.classList.remove("hidden");
-    }
-
-    function httpStatusText(status) {
-        if (status === 400) return "參數錯誤 (400)";
-        if (status === 401) return "認證失敗 (401)";
-        if (status === 404) return "找不到 (404)";
-        if (status === 405) return "方法不允許 (405)";
-        if (status === 408) return "請求逾時 (408)";
-        if (status === 413) return "請求過大 (413)";
-        if (status === 429) return "請求過多 (429)";
-        if (status === 500) return "內部伺服器錯誤 (500)";
-        if (status === 502) return "上游服務錯誤 (502)";
-        if (status === 503) return "服務暫時無法使用 (503)";
-        if (status === 504) return "伺服器回應逾時 (504)";
-        return "HTTP " + status;
-    }
-
-    function downloadCert(id) {
-        var c = certStore[id];
-        if (!c || !c.b64) return;
-        var pem = "-----BEGIN CERTIFICATE-----\n"
-            + c.b64.match(/.{1,64}/g).join("\n")
-            + "\n-----END CERTIFICATE-----\n";
-        var blob = new Blob([pem], { type: "application/x-pem-file" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = (c.cn || "cert").replace(/[^\w.-]/g, "_") + ".pem";
-        a.click();
-        URL.revokeObjectURL(a.href);
     }
 
     function setMode(mode) {
@@ -154,13 +120,18 @@
 
     function buildCertItem(depthLabel, cn, subject, certId, extraClass) {
         var item = el("div", { className: "cert-item" + (extraClass ? " " + extraClass : "") });
-        item.appendChild(el("span", { className: "cert-depth", text: depthLabel }));
+        var head = el("div", { className: "cert-head" });
+        head.appendChild(el("span", { className: "cert-depth", text: depthLabel }));
         if (certId) {
-            item.appendChild(document.createTextNode(" "));
-            var a = el("a", { className: "dl-link", text: "下載 .pem", attrs: { "data-cert-id": certId, "role": "button", "tabindex": "0" } });
-            a.addEventListener("click", function() { downloadCert(this.getAttribute("data-cert-id")); });
-            item.appendChild(a);
+            var btn = UI.pemButton();
+            btn.setAttribute("data-cert-id", certId);
+            btn.addEventListener("click", function() {
+                var c = certStore[this.getAttribute("data-cert-id")];
+                if (c) UI.downloadPem(c.b64, c.cn, "cert");
+            });
+            head.appendChild(btn);
         }
+        item.appendChild(head);
         item.appendChild(el("div", { className: "cert-cn", text: cn || "(no CN)" }));
         item.appendChild(el("div", { className: "cert-subject", text: subject || "" }));
         return item;
@@ -238,9 +209,8 @@
         if (!username || !password) { showError("請填寫帳號和密碼"); return; }
 
         var btn = $("testBtn");
-        var spinner = $("spinner");
         btn.disabled = true;
-        spinner.style.display = "block";
+        $("spinner").classList.remove("hidden");
         clearError();
         $("resultArea").classList.add("hidden");
 
@@ -278,20 +248,18 @@
                 showResult(d, currentMode === "eap");
                 return;
             }
+            var bodyErr = UI.errorText(d);
             if (!resp.ok) {
-                var bodyErr = d && d.error
-                    ? (Array.isArray(d.error) ? d.error.join("\n") : String(d.error))
-                    : "";
-                showError(bodyErr || httpStatusText(resp.status));
+                showError(bodyErr || UI.httpStatusText(resp.status));
                 return;
             }
-            if (d && d.error) { showError(Array.isArray(d.error) ? d.error.join("\n") : d.error); return; }
+            if (bodyErr) { showError(bodyErr); return; }
             showResult(d, currentMode === "eap");
         } catch (err) {
             showError("請求失敗: " + (err && err.message ? err.message : String(err)));
         } finally {
             btn.disabled = false;
-            spinner.style.display = "none";
+            $("spinner").classList.add("hidden");
         }
     }
 

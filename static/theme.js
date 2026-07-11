@@ -6,23 +6,28 @@
     } catch (e) {}
 })();
 
-function applyTheme(t) {
+function applyTheme(t, animate) {
     document.documentElement.setAttribute("data-theme", t);
     var icon = document.getElementById("themeIcon");
-    if (icon) icon.textContent = t === "dark" ? "light_mode" : "dark_mode";
+    if (!icon) return;
+    icon.textContent = t === "dark" ? "light_mode" : "dark_mode";
+    if (animate) {
+        icon.classList.remove("icon-swap");
+        void icon.offsetWidth; // 強制 reflow，讓動畫可重複觸發
+        icon.classList.add("icon-swap");
+    }
 }
 
 function toggleTheme() {
     var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
     var next = cur === "dark" ? "light" : "dark";
     try { localStorage.setItem("theme", next); } catch (e) {}
-    applyTheme(next);
+    applyTheme(next, true);
 }
 
 document.addEventListener("DOMContentLoaded", function() {
     var cur = document.documentElement.getAttribute("data-theme") || "light";
-    var icon = document.getElementById("themeIcon");
-    if (icon) icon.textContent = cur === "dark" ? "light_mode" : "dark_mode";
+    applyTheme(cur, false);
     var btn = document.getElementById("themeToggle");
     if (btn) btn.addEventListener("click", toggleTheme);
     requestAnimationFrame(function() { document.documentElement.classList.add("theme-ready"); });

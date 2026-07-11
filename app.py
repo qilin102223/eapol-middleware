@@ -45,7 +45,7 @@ if not os.path.isfile(CONFIG_PATH):
     raise RuntimeError(
         f"config file not found: {CONFIG_PATH} "
         "(cp config.example.json config.json, or set EAPOL_CONFIG_PATH)")
-with open(CONFIG_PATH, "r") as f:
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
 
 SERVERS = CONFIG["servers"]
@@ -366,7 +366,7 @@ def run_eapol_test(conf_content, server_cfg, server_name=""):
                 "config_used": conf_content, "server_cert_pem": "",
                 "_busy": True}
     try:
-        with open(conf_path, "w") as f:
+        with open(conf_path, "w", encoding="utf-8") as f:
             f.write(conf_content)
         cmd = [
             CONFIG["eapol_test_path"], "-c", conf_path,
@@ -382,7 +382,7 @@ def run_eapol_test(conf_content, server_cfg, server_name=""):
                                 server_cfg, server_name)
         server_cert_pem = ""
         if os.path.isfile(cert_path):
-            with open(cert_path, "r") as f:
+            with open(cert_path, "r", encoding="utf-8") as f:
                 server_cert_pem = f.read().strip()
         return {"success": "SUCCESS" in result.stdout,
                 "return_code": result.returncode, "output": output,

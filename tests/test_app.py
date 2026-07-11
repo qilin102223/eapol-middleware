@@ -946,10 +946,12 @@ class TestCoreHelpers(_Base):
         self.assertIn('ssid="eduroam"', conf)
 
     def test_run_eapol_test_adds_ssid_radius_attributes(self):
-        mod, _ = self.load(
+        # 不能用 self.load()：它會把 run_eapol_test 換成 fake_eapol，
+        # 這裡要測的正是真的 run_eapol_test 組出來的命令列。
+        mod = load_app(base_config(
             called_station_mac="AA:BB:CC:DD:EE:FF",
             calling_station_mac="02-00-00-00-00-01",
-        )
+        ))
         calls = {}
 
         class Result:
@@ -1299,12 +1301,12 @@ class TestHtmlContract(_Base):
         "testBtn", "spinner", "resultArea", "statusBadge",
         "summaryTable", "certArea", "certList",
         "rootCaArea", "rootCaBox", "rawArea", "rawOutput",
-        "rootca", "themeToggle", "themeIcon",
+        "rootca", "themeToggle", "themeIcon", "errorBox",
     }
     BATCH_REQUIRED_IDS = {
         "username", "password", "anonymous_identity",
         "server", "parallel", "rootca",
-        "testBtn", "spinner",
+        "testBtn", "spinner", "errorBox",
         "resultArea", "resultTable", "resultBody",
         "summaryLine", "exportCsvBtn",
         "themeToggle", "themeIcon",
@@ -1347,6 +1349,7 @@ class TestHtmlContract(_Base):
                           + body.strip()[:60])
             self.assertIn("src=", attrs, "script tag must have src=")
         self.assertIn('src="/static/theme.js"', html)
+        self.assertIn('src="/static/ui.js"', html)
         self.assertIn('src="/static/index.js"', html)
 
     def test_batch_loads_external_js_only_no_inline(self):
@@ -1361,6 +1364,7 @@ class TestHtmlContract(_Base):
                           + body.strip()[:60])
             self.assertIn("src=", attrs)
         self.assertIn('src="/static/theme.js"', html)
+        self.assertIn('src="/static/ui.js"', html)
         self.assertIn('src="/static/batch.js"', html)
 
     def test_no_inline_event_handlers(self):
@@ -1376,7 +1380,8 @@ class TestHtmlContract(_Base):
     def test_static_assets_served(self):
         _, client = self.load()
         for path in ("/static/index.js", "/static/batch.js",
-                     "/static/theme.js", "/static/style.css"):
+                     "/static/ui.js", "/static/theme.js",
+                     "/static/style.css"):
             r = client.get(path)
             self.assertEqual(r.status_code, 200, path)
             # non-empty
@@ -1396,6 +1401,42 @@ def _read_repo_file(*parts):
     path = os.path.join(APP_DIR, *parts)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+class TestUiJsContract(unittest.TestCase):
+    """ui.js holds the helpers shared by index.js / batch.js (HTTP status
+    labels, PEM wrapping, download). Pin the user-visible invariants at
+    source level — we have no JS runtime available."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.js = _read_static("ui.js")
+
+    def test_http_status_map_covers_common_codes(self):
+        # Every status we can realistically surface must have a dedicated
+        # label; 4xx/5xx must not fall through to a bare "HTTP <n>" when a
+        # known user-facing meaning exists.
+        for code in ("400", "401", "404", "405", "408", "413", "429",
+                     "500", "502", "503", "504"):
+            self.assertIn(code + ":", self.js,
+                          "ui.js missing label for status " + code)
+
+    def test_http_status_has_short_labels(self):
+        for phrase in ("找不到 (404)", "內部伺服器錯誤 (500)", "伺服器回應逾時 (504)"):
+            self.assertIn(phrase, self.js)
+
+    def test_b64_to_pem_wraps_64_char_lines(self):
+        self.assertIn("-----BEGIN CERTIFICATE-----", self.js)
+        self.assertIn("-----END CERTIFICATE-----", self.js)
+        self.assertIn("/.{1,64}/g", self.js)
+
+    def test_error_body_supports_string_and_list(self):
+        self.assertIn('Array.isArray(body.error) ? body.error.join("\\n") : String(body.error)',
+                      self.js)
+
+    def test_no_inline_secrets_or_urls(self):
+        self.assertNotIn("http://", self.js)
+        self.assertNotIn("https://", self.js)
 
 
 class TestBatchJsContract(unittest.TestCase):
@@ -1440,23 +1481,13 @@ class TestBatchJsContract(unittest.TestCase):
         # Timestamp strips milliseconds (.slice(0, 19))
         self.assertIn("slice(0, 19)", self.js)
 
-    def test_b64_to_pem_wraps_64_char_lines(self):
-        self.assertIn("-----BEGIN CERTIFICATE-----", self.js)
-        self.assertIn("-----END CERTIFICATE-----", self.js)
-        self.assertIn("/.{1,64}/g", self.js)
+    def test_b64_to_pem_via_shared_helper(self):
+        self.assertIn("UI.b64ToPem", self.js)
 
-    def test_handles_413_error(self):
-        # friendlyHttpError must map 413
-        self.assertIn("413", self.js)
-
-    def test_friendly_error_covers_common_codes(self):
-        # batch.js friendlyHttpError must have dedicated branches for every
-        # status we can realistically surface. 4xx/5xx must not fall through
-        # to a bare "HTTP <n>" when a known user-facing meaning exists.
-        for code in ("400", "401", "404", "405", "408", "413", "429",
-                     "500", "502", "503", "504"):
-            self.assertIn("status === " + code, self.js,
-                          "batch.js missing branch for status " + code)
+    def test_http_errors_use_shared_status_labels(self):
+        # HTTP error display goes through ui.js (UI.httpStatusText), where
+        # the per-status labels are pinned by TestUiJsContract.
+        self.assertIn("UI.httpStatusText(resp.status)", self.js)
 
     def _test_friendly_error_has_chinese_explanations(self):
         # Make sure the Chinese blurbs actually shipped — catches accidental
@@ -1471,9 +1502,9 @@ class TestBatchJsContract(unittest.TestCase):
         self.assertIn('"exportCsvBtn"', self.js)
         self.assertIn("exportCsv", self.js)
 
-    def test_friendly_error_has_short_labels(self):
-        for phrase in ("找不到 (404)", "內部伺服器錯誤 (500)", "伺服器回應逾時 (504)"):
-            self.assertIn(phrase, self.js)
+    def test_errors_render_in_error_box_not_alert(self):
+        self.assertIn('"errorBox"', self.js)
+        self.assertNotIn("alert(", self.js)
 
     def test_rootca_flag_sent_to_backend(self):
         # The rootca checkbox state must actually reach /api/batch
@@ -1490,9 +1521,8 @@ class TestIndexJsContract(unittest.TestCase):
                       '"/api/servers"', '"/api/supported-methods"'):
             self.assertIn(route, self.js, route)
 
-    def test_b64_to_pem_wraps_64_char_lines(self):
-        self.assertIn("-----BEGIN CERTIFICATE-----", self.js)
-        self.assertIn("/.{1,64}/g", self.js)
+    def test_b64_to_pem_via_shared_helper(self):
+        self.assertIn("UI.downloadPem", self.js)
 
     def test_mode_switch_ids_match_html(self):
         self.assertIn('"modeEap"', self.js)
@@ -1546,10 +1576,10 @@ class TestIndexJsContract(unittest.TestCase):
         self.assertIn('("HTTP " + resp.status)', self.js)
 
     def test_nonstructured_http_errors_fallback_to_body_or_short_status_text(self):
-        self.assertIn('Array.isArray(d.error) ? d.error.join("\\n") : String(d.error)', self.js)
-        self.assertIn("httpStatusText(resp.status)", self.js)
-        for phrase in ("找不到 (404)", "內部伺服器錯誤 (500)", "伺服器回應逾時 (504)"):
-            self.assertIn(phrase, self.js)
+        # body.error (string or list) wins, then the shared per-status label
+        # from ui.js (pinned by TestUiJsContract).
+        self.assertIn("UI.errorText(d)", self.js)
+        self.assertIn("UI.httpStatusText(resp.status)", self.js)
 
 
 # ── Frontend: CSV export logic spec (Python parity check) ────────

@@ -58,11 +58,11 @@
             </div>
 
             <label class="check-row">
-                <input type="checkbox" id="parallel" checked>
+                <input type="checkbox" id="parallel">
                 啟用並行處理 (速度較快，但部分帳號不支援，會認證失敗)
             </label>
             <label class="check-row">
-                <input type="checkbox" id="rootca">
+                <input type="checkbox" id="rootca" checked>
                 取得伺服器根憑證
             </label>
 
@@ -72,8 +72,12 @@
             </button>
         </div>
 
-        <div class="spinner" id="spinner">正在測試所有認證方法組合，請稍候...</div>
+        <div class="spinner hidden" id="spinner" role="status">
+            <div class="spinner-ring" aria-hidden="true"></div>
+            <span>正在測試所有認證方法組合，請稍候...</span>
+        </div>
 
+        <div id="errorBox" class="error-box hidden" role="alert" aria-live="polite"></div>
         <div id="resultArea" class="hidden">
             <div class="card">
                 <div class="result-header">
@@ -106,6 +110,7 @@
             <div>維護：<a href="https://edur.isli.me/" target="_blank" rel="noopener">eduroam 第三方資料庫</a>。協助：<a href="https://roamingcenter.ndhu.edu.tw/" target="_blank" rel="noopener">TANRC 學術網路漫遊中心</a>。主機：<a href="https://ncse.tw/" target="_blank" rel="noopener">NCSE NETWORK 國雲網路</a>。</div>
         </footer>
     </div>
+    <script src="/static/ui.js"></script>
     <script src="/static/batch.js"></script>
 </body>
 </html>
